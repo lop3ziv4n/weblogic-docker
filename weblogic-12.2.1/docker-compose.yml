@@ -1,0 +1,47 @@
+version: '2'
+
+services:
+
+  jdk8:
+    container_name: jdk8
+    build: ./java
+    image: app/jdk:8
+
+  weblogic-install:
+    container_name: weblogic-install
+    depends_on:
+      - jdk8
+    build: ./weblogic-install
+    image: app/weblogic-install
+
+  weblogic-domain:
+    container_name: app-weblogic
+    depends_on:
+      - weblogic-install
+    build: ./weblogic-domain
+    image: app/weblogic-domain
+    environment:
+      - ADMIN_PASSWORD=app2016
+    ports:
+      - "8001:8001"
+    volumes:
+      - /usr/local/app-docker/webapps/properties:/u01/oracle/properties
+      - /usr/local/app-docker/webapps/war:/u01/oracle/webapps
+      - /usr/local/app-docker/logs:/u01/oracle/logs
+      - /usr/local/app-docker/logs:/u01/oracle/user_projects/domains/base_domain/servers/AdminServer/logs
+
+#   weblogic-appdeploy:
+#    container_name: app-weblogic
+#    depends_on:
+#      - weblogic-domain
+#    build: ./weblogic-appdeploy
+#    image: app/weblogic-appdeploy
+#    environment:
+#      - ADMIN_PASSWORD=app2016
+#    ports:
+#      - "8001:8001"
+#    volumes:
+#      - /usr/local/app-docker/webapps/properties:/u01/oracle/properties
+#      - /usr/local/app-docker/webapps/war:/u01/oracle/webapps
+#      - /usr/local/app-docker/logs:/u01/oracle/logs
+#      - /usr/local/app-docker/logs:/u01/oracle/user_projects/domains/base_domain/servers/AdminServer/logs

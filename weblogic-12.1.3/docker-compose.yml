@@ -1,0 +1,95 @@
+# To run, call:
+#   $ docker-compose up
+
+version: '2'
+
+networks:
+  &network wlsnet:
+    driver: bridge
+
+services:
+  jdk7:
+    container_name: jdk7
+    build: ./java
+    image: app/jdk:7
+    networks:
+      - *network
+
+  weblogic-install:
+    container_name: weblogic-install
+    depends_on:
+      - jdk7
+    build: ./weblogic-install
+    image: app/weblogic-install:12.1.3
+    networks:
+      - *network
+
+  weblogic-domain:
+    container_name: weblogic-domain
+    depends_on:
+      - weblogic-install
+    build: ./weblogic-domain
+    image: app/weblogic-domain:12.1.3
+    environment:
+      - ADMIN_PASSWORD=app2017
+    networks:
+      - *network
+  
+#  weblogic-resources:
+#    container_name: weblogic-resources
+#    depends_on:
+#      - weblogic-domain
+#    build: ./weblogic-resources
+#    image: app/weblogic-resources:12.1.3
+#    networks:
+#      - *network
+ 
+  weblogic-appdeploy:
+    container_name: weblogic-appdeploy
+    depends_on:
+      - weblogic-domain
+    build: ./weblogic-appdeploy
+    image: app/weblogic-appdeploy:12.1.3
+    networks:
+      - *network
+
+  # Deploys the AdminServer
+  &admin weblogic:
+    container_name: wlsadmin
+    depends_on:
+      - weblogic-appdeploy
+    build: ./weblogic-start
+    image: &image app/weblogic:12.1.3
+    networks:
+      - *network
+    volumes:
+      - /usr/local/app-docker/webapps/properties:/u01/oracle/properties
+      - /usr/local/app-docker/webapps/war:/u01/oracle/webapps
+      - /usr/local/app-docker/logs/appweb:/u01/oracle/logs
+      - /usr/local/app-docker/logs/weblogic:/u01/oracle/user_projects/domains/base_domain/servers/AdminServer/logs
+
+  # Setting the AdminServer
+  weblogic-setting:
+    container_name: weblogic-setting
+    depends_on:
+      - *admin
+    image: *image
+    command: runSettings.sh
+    networks:
+      - *network
+
+  # WebTier for load balancing requests to cluster
+  apache-webtier:
+    container_name: apache-webtier
+    depends_on:
+      - *admin
+    build: ./apache-webtier
+    image: app/apache-webtier
+    networks:
+      - *network
+    ports:
+      - "80:80"
+    environment:
+      - WEBLOGIC_CLUSTER=wlsadmin:8001
+    links:
+      - *admin
